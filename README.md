@@ -8,6 +8,32 @@ A web app that measures and evaluates the speed and fluency of Japanese read-alo
 
 ---
 
+## 📸 Screenshots / 画面イメージ
+
+Phase 1 のモック画面です。AmiVoice API には未接続で、あらかじめ用意した音声認識データ（モック）を選び **「計測する」** を押すと、純粋発話速度と淀み率が表示されます。  
+Phase 1 mock UI: pick a preset sample and click **計測する** to see pure speaking speed and stagnation rate — no AmiVoice API yet.
+
+下図は **サンプル2（途中で淀む音読）** の計測結果です（80 字/分・淀み率 16.7%）。原稿用紙風のテキスト表示・サンプル切替・指標カードが一覧できます。  
+Below: **Sample 2 (hesitant reading)** — 80 chars/min, 16.7% stagnation.
+
+![Phase 1 モック UI — サンプル2の計測結果（80 字/分・淀み率 16.7%）](./docs/screenshots/mock-ui-overview.png)
+
+### モックデータ 2 パターンの比較 / Two mock samples
+
+| サンプル / Sample | 条件 / Condition | 計測結果 / Result |
+|---|---|---|
+| サンプル1（なめらか） | 10 文字・6 秒・無音なし | 100 字/分・淀み率 0% |
+| サンプル2（淀む） | 20 文字・発話 15 秒・無音 3 秒 | 80 字/分・淀み率 16.7% |
+
+<p align="center">
+  <img src="./docs/screenshots/mock-ui-sample1-smooth.png" alt="サンプル1 — なめらかな音読（100 字/分・淀み率 0%）" width="48%" />
+  <img src="./docs/screenshots/mock-ui-sample2-hesitant.png" alt="サンプル2 — 途中で淀む音読（80 字/分・淀み率 16.7%）" width="48%" />
+</p>
+
+左: サンプル1（なめらか） / Left: Sample 1 (smooth) — 右: サンプル2（淀む） / Right: Sample 2 (hesitant)
+
+---
+
 ## 🚀 Getting Started / セットアップ
 
 ```bash
@@ -34,6 +60,7 @@ reading-speed-meter/
 │   ├── calculateMetrics.ts     # 指標算出の純粋関数 / pure function
 │   ├── calculateMetrics.test.ts# Vitest（6 tests）
 │   └── mockData.ts             # モックデータ / mock AmiVoice data
+├── docs/screenshots/           # README 用キャプチャ / screenshots for README
 ├── README.md
 └── LEARNING_LOG_Phase1.md      # Phase 1 開発記録 / development log
 ```
@@ -183,16 +210,20 @@ function calculateMetrics(response: AmiVoiceResponse): ReadingMetrics
 
 ---
 
-## 🖥 Mock UI / モック画面
+## 🖥 Mock UI / モック画面の構成
 
-Step 1 の UI は AmiVoice API に接続せず、**モックデータ 2 件**で `calculateMetrics` の出力を確認する。
+画面の見た目は Claude で作成したたたき台をベースに、計測ロジックは `lib/metrics/calculateMetrics.ts` に接続しています。  
+UI layout from a Claude mockup; metrics powered by `lib/metrics/calculateMetrics.ts`.
 
-| サンプル / Sample | 内容 / Description | 期待値 / Expected |
-|---|---|---|
-| サンプル 1（なめらか） | 10 文字・6 秒・無音なし | 100 字/分、淀み率 0% |
-| サンプル 2（淀む） | 20 文字・発話 15 秒・無音 3 秒 | 80 字/分、淀み率 16.7% 前後 |
+| 要素 / Element | 役割 / Role |
+|---|---|
+| サンプル切替タブ | `mockData.ts` の 2 パターンを選択 / pick one of two presets |
+| 原稿用紙グリッド | 認識テキストを 1 文字ずつ表示 / recognized text, one char per cell |
+| 計測するボタン | `calculateMetrics()` を実行 / runs the pure function |
+| 結果カード | 純粋発話速度・淀み率（%）を表示 / speed (chars/min) and stagnation (%) |
 
-UI の見た目は Claude で作成したたたき台をベースに、ロジックは `lib/metrics/` の実装に接続済み。
+画面キャプチャは上記 **Screenshots / 画面イメージ** セクションを参照。  
+See the **Screenshots** section above for captures.
 
 ---
 
