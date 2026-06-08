@@ -4,11 +4,27 @@ import { calculateMetrics } from "@/lib/metrics/calculateMetrics";
 import { MOCK_SAMPLES } from "@/lib/metrics/mockData";
 import { ReadingMetrics } from "@/lib/metrics/types";
 
+/**
+ * 録音の状態
+ * - Idle: 録音待機中
+ * - Recording: 録音中
+ * - Done: 録音完了
+ * - Error: 録音エラー
+ */
+enum RecordingPhase {
+  Idle,      // 録音待機中
+  Recording, // 録音中
+  Done,      // 録音完了
+  Error,     // 録音エラー
+}
+
 export default function ReadingSpeedMeterMock() {
   const [sampleId, setSampleId] = useState<string>("smooth");
   const [metrics, setMetrics] = useState<ReadingMetrics | null>(null);
-
-  const sample= MOCK_SAMPLES.find((s) => s.id === sampleId);
+  const [recordingPhase, setRecordingPhase] = useState<RecordingPhase>(RecordingPhase.Idle);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  const sample = MOCK_SAMPLES.find((s) => s.id === sampleId);
   if (!sample) {
     return <div>サンプルが見つかりません</div>;
   }
@@ -154,6 +170,17 @@ export default function ReadingSpeedMeterMock() {
           color: var(--ink-soft); font-size: 13px; letter-spacing: .08em;
         }
 
+        .rsm-status {
+          margin-top: 16px; padding: 4px; text-align: center; background-color: var(--paper-deep);
+          border: 1px dashed var(--rule); border-radius: 8px;
+          color: var(--ink); font-size: 13px; letter-spacing: .08em;
+        }
+        .rsm-error-message {
+          margin-top: 16px; padding: 4px; text-align: center; background-color: var(--paper-deep);
+          border: 1px dashed var(--rule); border-radius: 8px;
+          color: var(--vermillion); font-size: 13px; letter-spacing: .08em;
+        }
+
         .rsm-foot {
           margin-top: 30px; font-size: 11px; color: var(--ink-soft);
           letter-spacing: .04em; line-height: 1.7; border-top: 1px solid var(--rule); padding-top: 16px;
@@ -166,7 +193,7 @@ export default function ReadingSpeedMeterMock() {
           音読速度計測<span className="seal">試作</span>
         </h1>
         <p className="rsm-sub">
-          Step 1 — モックの音声認識データで、計測ロジックの出力を確認する画面（録音・API連携は次段階）
+          Step 2 — ブラウザ録音の動作確認
         </p>
 
         <div className="rsm-section-label">モックデータを選ぶ</div>
@@ -194,6 +221,15 @@ export default function ReadingSpeedMeterMock() {
           </div>
           <div className="rsm-count">{chars.length} 文字</div>
         </div>
+
+        <div className="rsm-section-label">録音の状態</div>
+        <div className="rsm-status">
+          {recordingPhase === RecordingPhase.Idle && "録音待機中"}
+          {recordingPhase === RecordingPhase.Recording && "録音中"}
+          {recordingPhase === RecordingPhase.Done && "録音完了"}
+          {recordingPhase === RecordingPhase.Error && "録音エラー"}
+        </div>
+        {recordingPhase === RecordingPhase.Error && <div className="rsm-error-message">{errorMessage}</div>}
 
         <button className="rsm-btn" onClick={handleMeasure}>
           計 測 す る
