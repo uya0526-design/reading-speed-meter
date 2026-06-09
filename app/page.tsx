@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { calculateMetrics } from "@/lib/metrics/calculateMetrics";
 import { MOCK_SAMPLES } from "@/lib/metrics/mockData";
 import { ReadingMetrics } from "@/lib/metrics/types";
@@ -18,12 +18,153 @@ enum RecordingPhase {
   Error,     // 録音エラー
 }
 
+/**
+ * 録音の最大時間 10秒
+ */
+const MAX_RECORDING_TIME_MS = 10_000;
+
+/**
+ * 録音のMIMEタイプの候補（不変）
+ */
+const MIME_CANDIDATES = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg;codecs=opus",
+] as const;
+
+/**
+ * サポートされているMIMEタイプを選ぶ
+ * @returns サポートされているMIMEタイプ
+ */
+function pickSupportedMimeType(): string | null {
+  if (typeof MediaRecorder === "undefined") {
+    return null;
+  }
+  for (const mime of MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported(mime)) {
+      return mime;
+    }
+  }
+  return null;
+}
+
 export default function ReadingSpeedMeterMock() {
   const [sampleId, setSampleId] = useState<string>("smooth");
   const [metrics, setMetrics] = useState<ReadingMetrics | null>(null);
   const [recordingPhase, setRecordingPhase] = useState<RecordingPhase>(RecordingPhase.Idle);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null); // 録音エンジン
+  const streamRef = useRef<MediaStream | null>(null);          // 録音ストリーム
+  const chunksRef = useRef<Blob[]>([]);                        // 録音データの断片保持
+  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // 自動停止タイマー
+  const selectedMimeTypeRef = useRef<string | null>(null);     // 選択されたMIMEタイプ
   
+  /**
+   * 録音のセットアップ
+   */
+  async function setupRecording(): Promise<void> {
+    const mimeType = pickSupportedMimeType();
+    if (!mimeType) {
+      throw new Error("このブラウザでは録音形式に対応していません");
+    }
+    selectedMimeTypeRef.current = mimeType;
+  
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+  
+    chunksRef.current = [];
+  
+    // 録音エンジンの作成
+    const recorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorderRef.current = recorder;
+  
+    // 録音中のデータ断片コールバック
+    recorder.ondataavailable = (event: BlobEvent) => {
+      if (event.data.size > 0) {
+        // 録音データが存在する場合、断片に追加
+        chunksRef.current.push(event.data);
+      }
+    };
+
+    // 録音停止コールバック
+    recorder.onstop = () => {
+      if (!selectedMimeTypeRef.current) {
+        setRecordingPhase(RecordingPhase.Error);
+        setErrorMessage("録音データのMIMEタイプが未設定です");
+        // 録音ストリームを停止
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        mediaRecorderRef.current = null;
+        return;
+      }
+      // 録音データの断片をBlobに変換
+      const blob = new Blob(chunksRef.current, { type: selectedMimeTypeRef.current });
+      // 録音データのBlobを設定
+      setAudioBlob(blob);
+      chunksRef.current = [];
+      setRecordingPhase(RecordingPhase.Done);
+      // 録音ストリームを停止
+      stream.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      mediaRecorderRef.current = null;
+    };
+  
+    recorder.start();
+  }
+
+  /**
+   * 録音の手動および自動停止
+   */
+  function stopRecording(): void {
+    if (autoStopTimerRef.current !== null) {
+      // 自動停止タイマーをクリア
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+    const recorder = mediaRecorderRef.current;
+    // 録音エンジンが存在し、録音中の場合、停止
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+  }
+
+  /**
+   * 録音の開始ボタンのクリックハンドラ
+   */
+  const handleRecordingStart = async () => {
+    // エラーメッセージをクリア
+    setErrorMessage(null);
+    try {
+      await setupRecording();
+      setRecordingPhase(RecordingPhase.Recording);
+
+      // 自動停止タイマーを設定
+      autoStopTimerRef.current = setTimeout(() => {
+        stopRecording();
+      }, MAX_RECORDING_TIME_MS);
+    } catch (err) {
+      // 録音ストリームを停止
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      mediaRecorderRef.current = null;
+      setRecordingPhase(RecordingPhase.Error);
+      setErrorMessage(
+        err instanceof Error ? err.message : "マイクの取得に失敗しました"
+      );
+    }
+  };
+  
+  /**
+   * 録音の停止ボタンのクリックハンドラ
+   */
+  const handleRecordingStop = () => {
+    stopRecording();
+    // phase は onstop 内で Done にする（Blob 完成後）
+  };
+
   const sample = MOCK_SAMPLES.find((s) => s.id === sampleId);
   if (!sample) {
     return <div>サンプルが見つかりません</div>;
@@ -52,6 +193,8 @@ export default function ReadingSpeedMeterMock() {
           --paper-deep: #e8dfca;
           --ink: #2a241d;
           --ink-soft: #7a6f5d;
+          --navy: #000080;
+          --navy-deep: #001F3F;
           --vermillion: #be3a22;
           --vermillion-deep: #9c2c17;
           --grid: #b9c4ad;
@@ -130,6 +273,7 @@ export default function ReadingSpeedMeterMock() {
           letter-spacing: .1em; text-align: right;
         }
 
+        /* 計測ボタン */
         .rsm-btn {
           margin-top: 22px; width: 100%; cursor: pointer;
           background: var(--vermillion); color: #fbf6ec;
@@ -141,6 +285,19 @@ export default function ReadingSpeedMeterMock() {
         }
         .rsm-btn:hover { filter: brightness(1.04); }
         .rsm-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--vermillion-deep); }
+
+        /* 録音ボタン */
+        .rsm-recording-btn {
+          margin-top: 22px; width: 100%; cursor: pointer;
+          background: var(--navy); color: #fbf6ec;
+          border: none; border-radius: 6px; padding: 16px;
+          font-family: 'Shippori Mincho B1', serif; font-weight: 700;
+          font-size: 18px; letter-spacing: 0.3em;
+          box-shadow: 0 4px 0 var(--navy-deep);
+          transition: transform .08s ease, box-shadow .08s ease;
+        }
+        .rsm-recording-btn:hover { filter: brightness(1.04); }
+        .rsm-recording-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--navy-deep); }
 
         .rsm-results { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
         .rsm-card {
@@ -231,6 +388,29 @@ export default function ReadingSpeedMeterMock() {
         </div>
         {recordingPhase === RecordingPhase.Error && <div className="rsm-error-message">{errorMessage}</div>}
 
+        <div className="rsm-section-label">録音ボタン</div>
+        {recordingPhase === RecordingPhase.Idle && (
+          <button className="rsm-recording-btn" onClick={handleRecordingStart}>
+            録 音 開 始
+          </button>
+        )}
+        {recordingPhase === RecordingPhase.Recording && (
+          <button className="rsm-recording-btn" onClick={handleRecordingStop}>
+            録 音 停 止
+          </button>
+        )}
+        {recordingPhase === RecordingPhase.Done && (
+          <button className="rsm-recording-btn" onClick={handleRecordingStart}>
+            再 度 録 音
+          </button>
+        )}
+        {recordingPhase === RecordingPhase.Error && (
+          <button className="rsm-recording-btn" onClick={handleRecordingStart}>
+            再 度 録 音（エラーにより録音失敗）
+          </button>
+        )}
+
+        <div className="rsm-section-label">計測ボタン</div>
         <button className="rsm-btn" onClick={handleMeasure}>
           計 測 す る
         </button>
