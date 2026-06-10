@@ -55,13 +55,25 @@ export default function ReadingSpeedMeterMock() {
   const [recordingPhase, setRecordingPhase] = useState<RecordingPhase>(RecordingPhase.Idle);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null); // 録音エンジン
   const streamRef = useRef<MediaStream | null>(null);          // 録音ストリーム
   const chunksRef = useRef<Blob[]>([]);                        // 録音データの断片保持
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // 自動停止タイマー
   const selectedMimeTypeRef = useRef<string | null>(null);     // 選択されたMIMEタイプ
-  
+  const audioUrlRef = useRef<string | null>(null);             // revoke漏れ防止のため最新のURL
+
+  const showAudioPlayer = audioBlob !== null &&
+    (recordingPhase === RecordingPhase.Done || recordingPhase === RecordingPhase.Error);
+
+  function setAudioUrlSafe(url: string | null): void {
+    // 最新のURLを保持
+    audioUrlRef.current = url;
+    // 画面表示用のURLを設定
+    setAudioUrl(url);
+  }
+
   /**
    * 録音のセットアップ
    */
@@ -102,6 +114,14 @@ export default function ReadingSpeedMeterMock() {
       }
       // 録音データの断片をBlobに変換
       const blob = new Blob(chunksRef.current, { type: selectedMimeTypeRef.current });
+      // 録音データのBlobをURLに変換
+      const url = URL.createObjectURL(blob);
+      // ここまで来ればURLの作成に成功しているので、前回のURLをrevoke
+      if (audioUrlRef.current) {
+        // 前回の録音データのURLをクリア（revoke漏れ防止のため最新のURLを使用）
+        URL.revokeObjectURL(audioUrlRef.current);
+      }
+      setAudioUrlSafe(url);
       // 録音データのBlobを設定
       setAudioBlob(blob);
       chunksRef.current = [];
@@ -299,6 +319,12 @@ export default function ReadingSpeedMeterMock() {
         .rsm-recording-btn:hover { filter: brightness(1.04); }
         .rsm-recording-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--navy-deep); }
 
+        .rsm-audio-player-cautions {
+          margin-top: 16px; padding: 4px; text-align: center; background-color: var(--paper-deep);
+          border: 1px dashed var(--rule); border-radius: 8px;
+          color: var(--vermillion); font-size: 13px; letter-spacing: .08em;
+        }
+
         .rsm-results { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
         .rsm-card {
           background: #fbf6ec; border: 1px solid var(--rule); border-radius: 8px;
@@ -333,8 +359,6 @@ export default function ReadingSpeedMeterMock() {
           color: var(--ink); font-size: 13px; letter-spacing: .08em;
         }
         .rsm-error-message {
-          margin-top: 16px; padding: 4px; text-align: center; background-color: var(--paper-deep);
-          border: 1px dashed var(--rule); border-radius: 8px;
           color: var(--vermillion); font-size: 13px; letter-spacing: .08em;
         }
 
@@ -384,9 +408,8 @@ export default function ReadingSpeedMeterMock() {
           {recordingPhase === RecordingPhase.Idle && "録音待機中"}
           {recordingPhase === RecordingPhase.Recording && "録音中"}
           {recordingPhase === RecordingPhase.Done && "録音完了"}
-          {recordingPhase === RecordingPhase.Error && "録音エラー"}
+          {recordingPhase === RecordingPhase.Error && <p className="rsm-error-message">録音エラー: {errorMessage}</p>}
         </div>
-        {recordingPhase === RecordingPhase.Error && <div className="rsm-error-message">{errorMessage}</div>}
 
         <div className="rsm-section-label">録音ボタン</div>
         {recordingPhase === RecordingPhase.Idle && (
@@ -408,6 +431,22 @@ export default function ReadingSpeedMeterMock() {
           <button className="rsm-recording-btn" onClick={handleRecordingStart}>
             再 度 録 音（エラーにより録音失敗）
           </button>
+        )}
+
+        {showAudioPlayer && (
+          <div className="rsm-audio-player-container">
+            <div className="rsm-section-label">録音データの確認</div>
+            {recordingPhase === RecordingPhase.Error && audioUrl && (
+              <div className="rsm-audio-player-cautions">
+                録音に失敗しました。過去の録音が使用可能です。もしくは、再度録音を試してください。
+              </div>
+            )}
+            {audioUrl && (
+              <div className="rsm-audio-player">
+                <audio src={audioUrl} controls />
+              </div>
+            )}
+          </div>
         )}
 
         <div className="rsm-section-label">計測ボタン</div>
