@@ -56,6 +56,7 @@ export default function ReadingSpeedMeterMock() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [selectedMimeType, setSelectedMimeType] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null); // 録音エンジン
   const streamRef = useRef<MediaStream | null>(null);          // 録音ストリーム
@@ -126,6 +127,8 @@ export default function ReadingSpeedMeterMock() {
       setAudioBlob(blob);
       chunksRef.current = [];
       setRecordingPhase(RecordingPhase.Done);
+      // MimeTypeを設定
+      setSelectedMimeType(selectedMimeTypeRef.current);
       // 録音ストリームを停止
       stream.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -252,6 +255,7 @@ export default function ReadingSpeedMeterMock() {
           border-bottom: 1px solid var(--rule);
         }
 
+        /* セクションラベル */
         .rsm-section-label {
           font-size: 12px; letter-spacing: 0.28em; color: var(--ink-soft);
           font-weight: 700; margin: 30px 0 12px;
@@ -323,6 +327,26 @@ export default function ReadingSpeedMeterMock() {
           margin-top: 16px; padding: 4px; text-align: center; background-color: var(--paper-deep);
           border: 1px dashed var(--rule); border-radius: 8px;
           color: var(--vermillion); font-size: 13px; letter-spacing: .08em;
+        }
+        
+        .rsm-audio-player {
+          margin-top: 16px; padding: 4px;
+          text-align: center; background-color: var(--paper-deep);
+          border: 1px dashed var(--rule); border-radius: 8px;
+          color: var(--ink); font-size: 13px; letter-spacing: .08em;
+        }
+        
+        .rsm-audio-player-audio {
+          margin-top: 16px; margin-bottom: 16px;
+          padding-left: 16px; padding-right: 16px;
+          width: 100%;
+        }
+        
+        .rsm-audio-player-details {
+          margin-top: 16px; padding-top: 16px; padding-bottom: 16px; padding-left: 32px; padding-right: 32px;
+          text-align: left; background-color: var(--paper-deep);
+          border: 1px dashed var(--rule); border-radius: 8px;
+          color: var(--ink); font-size: 13px; letter-spacing: .08em;
         }
 
         .rsm-results { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
@@ -408,7 +432,8 @@ export default function ReadingSpeedMeterMock() {
           {recordingPhase === RecordingPhase.Idle && "録音待機中"}
           {recordingPhase === RecordingPhase.Recording && "録音中"}
           {recordingPhase === RecordingPhase.Done && "録音完了"}
-          {recordingPhase === RecordingPhase.Error && <p className="rsm-error-message">録音エラー: {errorMessage}</p>}
+          {recordingPhase === RecordingPhase.Error &&
+            <span className="rsm-error-message">録音エラー: {errorMessage}</span>}
         </div>
 
         <div className="rsm-section-label">録音ボタン</div>
@@ -443,9 +468,19 @@ export default function ReadingSpeedMeterMock() {
             )}
             {audioUrl && (
               <div className="rsm-audio-player">
-                <audio src={audioUrl} controls />
+                <audio src={audioUrl} controls className="rsm-audio-player-audio" />
               </div>
             )}
+          </div>
+        )}
+        {showAudioPlayer && audioUrl && (
+          <div className="rsm-section-label">録音データの情報</div>
+        )}
+        {showAudioPlayer && audioUrl && (
+          <div className="rsm-audio-player-details">
+            MimeType: {selectedMimeType ?? "不明"}<br />
+            BlobType: {audioBlob?.type ?? "不明"}<br />
+            BlobSize: {audioBlob?.size ?? "不明"} bytes<br />
           </div>
         )}
 
