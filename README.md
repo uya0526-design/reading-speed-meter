@@ -10,15 +10,17 @@ A web app that measures and evaluates the speed and fluency of Japanese read-alo
 
 ## 📸 Screenshots / 画面イメージ
 
+### アプリ全体（Step 2 完了時点）/ App overview (Step 2)
+
+録音完了・再生確認・モック計測結果が一覧できる現行画面。**サンプル2** 選択時（80 字/分・淀み率 16.7%）。  
+Current UI with recording playback and mock metrics. **Sample 2** selected (80 chars/min, 16.7% stagnation).
+
+![アプリ全体 — 録音完了とモック計測（サンプル2）](./docs/screenshots/mock-ui-overview.jpeg)
+
 ### モック計測（Step 1）/ Mock metrics (Step 1)
 
 AmiVoice API には未接続。あらかじめ用意した音声認識データ（モック）を選び **「計測する」** を押すと、純粋発話速度と淀み率が表示されます。  
 Not connected to AmiVoice yet. Pick a preset mock sample and click **計測する** to see pure speaking speed and stagnation rate.
-
-下図は **サンプル2（途中で淀む音読）** の計測結果（80 字/分・淀み率 16.7%）。  
-Below: **Sample 2 (hesitant reading)** — 80 chars/min, 16.7% stagnation.
-
-![Phase 1 モック UI — サンプル2の計測結果](./docs/screenshots/mock-ui-overview.png)
 
 | サンプル / Sample | 条件 / Condition | 計測結果 / Result |
 |---|---|---|
@@ -26,9 +28,11 @@ Below: **Sample 2 (hesitant reading)** — 80 chars/min, 16.7% stagnation.
 | サンプル2（淀む） / Sample 2 (hesitant) | 20 文字・発話 15 秒・無音 3 秒 | 80 字/分・淀み率 16.7% |
 
 <p align="center">
-  <img src="./docs/screenshots/mock-ui-sample1-smooth.png" alt="サンプル1 — なめらかな音読" width="48%" />
-  <img src="./docs/screenshots/mock-ui-sample2-hesitant.png" alt="サンプル2 — 途中で淀む音読" width="48%" />
+  <img src="./docs/screenshots/mock-ui-sample1-smooth.jpeg" alt="サンプル1 — なめらかな音読（100 字/分・淀み率 0%）" width="48%" />
+  <img src="./docs/screenshots/mock-ui-sample2-hesitant.jpeg" alt="サンプル2 — 途中で淀む音読（80 字/分・淀み率 16.7%）" width="48%" />
 </p>
+
+左: サンプル1（なめらか） / Left: Sample 1 (smooth) — 右: サンプル2（淀む） / Right: Sample 2 (hesitant)
 
 ### ブラウザ録音（Step 2）/ Browser recording (Step 2)
 
@@ -41,6 +45,35 @@ Record read-aloud via microphone, play back on the spot (max 10 seconds). Shows 
 | 自動停止 / Auto-stop | 10 秒経過で録音終了 / Stops after 10 seconds |
 | 再生確認 / Playback | `<audio controls>` で録音内容を確認 |
 | 形式確認 / Format info | 選択 mimeType・Blob type・サイズを表示 |
+
+#### 録音待機 / Idle
+
+![録音待機中](./docs/screenshots/recording-idle.jpeg)
+
+#### 録音中 / Recording
+
+![録音中](./docs/screenshots/recording-recording.jpeg)
+
+#### 録音完了 / Done
+
+再生プレーヤーと mimeType・Blob 情報を確認。  
+Playback player with mimeType and Blob details.
+
+![録音完了](./docs/screenshots/recording-done-overview.jpeg)
+
+#### 録音エラー / Error
+
+マイク拒否などで録音に失敗した状態。  
+Recording failed (e.g. microphone permission denied).
+
+![録音エラー](./docs/screenshots/recording-error.jpeg)
+
+#### 再録音失敗時のフォールバック / Re-record failure fallback
+
+1 回目の録音は成功済み。2 回目が失敗しても **前回の録音を再生可能**。  
+First recording succeeded; playback of the previous recording remains available after a failed re-record.
+
+![再録音失敗 — 前回の録音を保持](./docs/screenshots/recording-error-with-fallback.jpeg)
 
 ---
 

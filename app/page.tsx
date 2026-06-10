@@ -463,7 +463,8 @@ export default function ReadingSpeedMeterMock() {
             <div className="rsm-section-label">録音データの確認</div>
             {recordingPhase === RecordingPhase.Error && audioUrl && (
               <div className="rsm-audio-player-cautions">
-                録音に失敗しました。過去の録音が使用可能です。もしくは、再度録音を試してください。
+                録音に失敗しました。過去の録音が使用可能です。<br />
+                もしくは、再度録音を試してください。
               </div>
             )}
             {audioUrl && (
