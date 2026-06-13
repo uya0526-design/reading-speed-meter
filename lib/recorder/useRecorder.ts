@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { RecordingPhase } from "./types";
-import { MIME_CANDIDATES, MAX_RECORDING_TIME_MS } from "./constants";
+import { MAX_RECORDING_TIME_MS } from "./constants";
 import { pickBrowserMimeType } from "./mimeType";
 
 /**
