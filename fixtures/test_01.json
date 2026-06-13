@@ -1,0 +1,39 @@
+{
+  "results": [
+    {
+      "tokens": [
+        {
+          "written": "一番",
+          "confidence": 0.79,
+          "starttime": 1080,
+          "endtime": 1480,
+          "spoken": "いちばん"
+        },
+        {
+          "written": "買っ",
+          "confidence": 0.43,
+          "starttime": 1480,
+          "endtime": 1672,
+          "spoken": "かっ"
+        },
+        {
+          "written": "た",
+          "confidence": 0.48,
+          "starttime": 1720,
+          "endtime": 1800,
+          "spoken": "た"
+        }
+      ],
+      "confidence": 0.91824996,
+      "starttime": 600,
+      "endtime": 1800,
+      "tags": [],
+      "rulename": "",
+      "text": "一番買った"
+    }
+  ],
+  "utteranceid": "20260613/05/019ebda1d0f40a303eec94cd_20260613_055919",
+  "text": "一番買った",
+  "code": "",
+  "message": ""
+}

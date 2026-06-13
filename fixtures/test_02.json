@@ -1,0 +1,81 @@
+{
+  "results": [
+    {
+      "tokens": [
+        {
+          "written": "一番",
+          "confidence": 0.79,
+          "starttime": 1080,
+          "endtime": 1480,
+          "spoken": "いちばん"
+        },
+        {
+          "written": "買っ",
+          "confidence": 0.43,
+          "starttime": 1480,
+          "endtime": 1672,
+          "spoken": "かっ"
+        },
+        {
+          "written": "た",
+          "confidence": 0.48,
+          "starttime": 1720,
+          "endtime": 1800,
+          "spoken": "た"
+        },
+        {
+          "written": "ラーメン屋",
+          "confidence": 0.81,
+          "starttime": 2584,
+          "endtime": 3272,
+          "spoken": "らーめんや"
+        },
+        {
+          "written": "NPU",
+          "confidence": 0.96,
+          "starttime": 5626,
+          "endtime": 6138,
+          "spoken": "えぬぴーゆー"
+        },
+        {
+          "written": "コピー",
+          "confidence": 0.77,
+          "starttime": 6138,
+          "endtime": 6762,
+          "spoken": "こぴー"
+        },
+        {
+          "written": "癒し",
+          "confidence": 0.94,
+          "starttime": 8072,
+          "endtime": 8824,
+          "spoken": "いやし"
+        },
+        {
+          "written": "を",
+          "confidence": 0.4,
+          "starttime": 9326,
+          "endtime": 9550,
+          "spoken": "を"
+        },
+        {
+          "written": "できる",
+          "confidence": 0.16,
+          "starttime": 9550,
+          "endtime": 9886,
+          "spoken": "できる"
+        }
+      ],
+      "confidence": 0.91824996,
+      "starttime": 600,
+      "endtime": 9886,
+      "tags": [],
+      "rulename": "",
+      "text": "一番買ったラーメン屋NPUコピー癒しをできる"
+    }
+  ],
+  "utteranceid": "20260613/05/019ebda1d0f40a303eec94cd_20260613_055919",
+  "text": "一番買ったラーメン屋NPUコピー癒しをできる",
+  "code": "",
+  "message": ""
+}
