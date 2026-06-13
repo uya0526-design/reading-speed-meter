@@ -2,9 +2,10 @@
 import { useState } from "react";
 import { calculateMetrics } from "@/lib/metrics/calculateMetrics";
 import { MOCK_SAMPLES } from "@/lib/metrics/mockData";
-import { ReadingMetrics } from "@/lib/metrics/types";
+import { ReadingMetrics, AnalysisPhase } from "@/lib/metrics/types";
 import { useRecorder } from "@/lib/recorder/useRecorder";
 import { RecordingPhase } from "@/lib/recorder/types";
+import { mapAmiVoiceResponse } from "@/lib/metrics/mapAmiVoiceResponse";
 
 export default function ReadingSpeedMeterMock() {
   const {
@@ -17,7 +18,10 @@ export default function ReadingSpeedMeterMock() {
     handleRecordingStart,
     handleRecordingStop,
   } = useRecorder();
-  
+
+  const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>(AnalysisPhase.Idle);
+  const [analysisErrorMessage, setAnalysisErrorMessage] = useState<string | null>(null);
+
   const [sampleId, setSampleId] = useState<string>("smooth");
   const [metrics, setMetrics] = useState<ReadingMetrics | null>(null);
 
@@ -27,13 +31,57 @@ export default function ReadingSpeedMeterMock() {
   }
   const chars = [...sample.response.text];
 
-  const handleMeasure = () => {
-    setMetrics(calculateMetrics(sample.response));
+  const handleMeasure = async () => {
+    // 録音データがない場合は即座にreturn
+    if (!audioBlob) {
+      setAnalysisPhase(AnalysisPhase.Error);
+      setAnalysisErrorMessage("録音データがありません。録音を行ってください。");
+      return;
+    }
+    // 録音データがある場合は分析フェーズを開始
+    setAnalysisPhase(AnalysisPhase.Analyzing);
+    setAnalysisErrorMessage(null);
+    setMetrics(null);
+    try {
+      // FormDataを組み立てる ブラウザ->自前のBFF->AmiVoice API
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+      // 自前のAPI Routeを呼び出す
+      const res = await fetch("/api/recognize", {
+        method: "POST",
+        body: formData,
+      });
+      // HTTPステータスチェック
+      if (!res.ok) {
+        throw new Error(`API error! status: ${res.status}`);
+      }
+      // レスポンスボディを生JSONとして読み込む
+      const rawResponse = await res.json();
+      // AmiVoiceのエラー応答ガード（codeが空でない場合はエラー）
+      if (typeof rawResponse === "object" && rawResponse !== null
+        && "code" in rawResponse && rawResponse.code !== "") {
+        throw new Error(
+          typeof rawResponse.message === "string" ? rawResponse.message : "音声認識に失敗しました");
+      }
+      // マッパー -> 純粋関数呼び出し
+      const amiVoiceResponse = mapAmiVoiceResponse(rawResponse);
+      const metrics = calculateMetrics(amiVoiceResponse);
+      // 成功したので結果を表示
+      setMetrics(metrics);
+      setAnalysisPhase(AnalysisPhase.Analyzed);
+    } catch (err) {
+      // 失敗
+      setAnalysisPhase(AnalysisPhase.Error);
+      setAnalysisErrorMessage(
+        err instanceof Error ? err.message : "計測に失敗しました");
+    }
   };
 
   const selectSample = (id: string) => {
     setSampleId(id);
     setMetrics(null); // サンプルを変えたら結果はリセット
+    setAnalysisPhase(AnalysisPhase.Idle);
+    setAnalysisErrorMessage(null);
   };
 
   const stagnationPct =
@@ -231,7 +279,7 @@ export default function ReadingSpeedMeterMock() {
           音読速度計測<span className="seal">試作</span>
         </h1>
         <p className="rsm-sub">
-          Step 2 — ブラウザ録音の動作確認
+          Step 3 — AmiVoice API と連携した音声認識と計測
         </p>
 
         <div className="rsm-section-label">モックデータを選ぶ</div>
@@ -241,6 +289,7 @@ export default function ReadingSpeedMeterMock() {
               key={s.id}
               className={`rsm-tab ${s.id === sampleId ? "active" : ""}`}
               onClick={() => selectSample(s.id)}
+              disabled={analysisPhase === AnalysisPhase.Analyzing}
             >
               <div className="t-label">{s.label}</div>
               <div className="t-note">{s.note}</div>
@@ -271,22 +320,26 @@ export default function ReadingSpeedMeterMock() {
 
         <div className="rsm-section-label">録音ボタン</div>
         {recordingPhase === RecordingPhase.Idle && (
-          <button className="rsm-recording-btn" onClick={handleRecordingStart}>
+          <button className="rsm-recording-btn" onClick={handleRecordingStart}
+            disabled={analysisPhase === AnalysisPhase.Analyzing}>
             録 音 開 始
           </button>
         )}
         {recordingPhase === RecordingPhase.Recording && (
-          <button className="rsm-recording-btn" onClick={handleRecordingStop}>
+          <button className="rsm-recording-btn" onClick={handleRecordingStop}
+            disabled={analysisPhase === AnalysisPhase.Analyzing}>
             録 音 停 止
           </button>
         )}
         {recordingPhase === RecordingPhase.Done && (
-          <button className="rsm-recording-btn" onClick={handleRecordingStart}>
+          <button className="rsm-recording-btn" onClick={handleRecordingStart}
+            disabled={analysisPhase === AnalysisPhase.Analyzing}>
             再 度 録 音
           </button>
         )}
         {recordingPhase === RecordingPhase.Error && (
-          <button className="rsm-recording-btn" onClick={handleRecordingStart}>
+          <button className="rsm-recording-btn" onClick={handleRecordingStart}
+            disabled={analysisPhase === AnalysisPhase.Analyzing}>
             再 度 録 音（エラーにより録音失敗）
           </button>
         )}
@@ -318,40 +371,48 @@ export default function ReadingSpeedMeterMock() {
           </div>
         )}
 
-        <div className="rsm-section-label">計測ボタン</div>
-        <button className="rsm-btn" onClick={handleMeasure}>
-          計 測 す る
-        </button>
-
-        {metrics === null ? (
-          <div className="rsm-placeholder">
-            「計測する」を押すと、純粋発話速度と淀み率が表示されます
-          </div>
-        ) : (
-          <div className="rsm-results">
-            <div className="rsm-card">
-              <div className="c-label">純粋発話速度</div>
-              <div className="c-value">
-                {metrics.pureSpeakingSpeed}
-                <span className="c-unit">文字/分</span>
-              </div>
+        {showAudioPlayer && audioUrl && (
+          <>
+            <div className="rsm-section-label">計測の状態</div>
+            <div className="rsm-status">
+              {analysisPhase === AnalysisPhase.Idle && "未計測"}
+              {analysisPhase === AnalysisPhase.Analyzing && "計測中"}
+              {analysisPhase === AnalysisPhase.Analyzed && "計測完了"}
+              {analysisPhase === AnalysisPhase.Error &&
+                <span className="rsm-error-message">計測エラー: {analysisErrorMessage}</span>}
             </div>
-            <div className="rsm-card">
-              <div className="c-label">淀み率</div>
-              <div className="c-value">
-                {stagnationPct}
-                <span className="c-unit">%</span>
+            <div className="rsm-section-label">計測ボタン</div>
+            <button className="rsm-btn" onClick={handleMeasure}
+              disabled={analysisPhase === AnalysisPhase.Analyzing}>
+              計 測 す る
+            </button>
+            {metrics !== null && (
+              <div className="rsm-results">
+                <div className="rsm-card">
+                  <div className="c-label">純粋発話速度</div>
+                  <div className="c-value">
+                    {metrics.pureSpeakingSpeed}
+                    <span className="c-unit">文字/分</span>
+                  </div>
+                </div>
+                <div className="rsm-card">
+                  <div className="c-label">淀み率</div>
+                  <div className="c-value">
+                    {stagnationPct}
+                    <span className="c-unit">%</span>
+                  </div>
+                  <div className="rsm-bar">
+                    <span style={{ width: `${stagnationPct}%` }} />
+                  </div>
+                </div>
               </div>
-              <div className="rsm-bar">
-                <span style={{ width: `${stagnationPct}%` }} />
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
+
         <div className="rsm-foot">
-          ※ これはモックデータでの動作確認です。実装 calculateMetrics の動作確認をしています。
-          今後のフェーズでは、AmiVoice API と連携して、実際の音声データを計測します。
+          ※ AmiVoice API と連携して、音声データを計測します。
         </div>
       </div>
     </div>

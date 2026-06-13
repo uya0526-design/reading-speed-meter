@@ -31,3 +31,16 @@ export interface UiData {
   note: string;
   response: AmiVoiceResponse;
 }
+/**
+ * 計測フェーズ
+ * - Idle: 待機中・再計測前
+ * - Analyzing: 計測中
+ * - Analyzed: 計測完了
+ * - Error: 計測エラー（APIエラーなど）
+ */
+export enum AnalysisPhase {
+  Idle,
+  Analyzing,
+  Analyzed,
+  Error,
+}
