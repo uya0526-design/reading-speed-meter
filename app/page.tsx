@@ -6,6 +6,7 @@ import { ReadingMetrics, AnalysisPhase } from "@/lib/metrics/types";
 import { useRecorder } from "@/lib/recorder/useRecorder";
 import { RecordingPhase } from "@/lib/recorder/types";
 import { mapAmiVoiceResponse } from "@/lib/metrics/mapAmiVoiceResponse";
+import { labelMetrics } from "@/lib/metrics/labelMetrics";
 
 export default function ReadingSpeedMeterMock() {
   const {
@@ -21,6 +22,7 @@ export default function ReadingSpeedMeterMock() {
 
   const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>(AnalysisPhase.Idle);
   const [analysisErrorMessage, setAnalysisErrorMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const [sampleId, setSampleId] = useState<string>("smooth");
   const [metrics, setMetrics] = useState<ReadingMetrics | null>(null);
@@ -42,6 +44,7 @@ export default function ReadingSpeedMeterMock() {
     setAnalysisPhase(AnalysisPhase.Analyzing);
     setAnalysisErrorMessage(null);
     setMetrics(null);
+    setFeedback(null);
     try {
       // FormDataを組み立てる ブラウザ->自前のBFF->AmiVoice API
       const formData = new FormData();
@@ -66,9 +69,21 @@ export default function ReadingSpeedMeterMock() {
       // マッパー -> 純粋関数呼び出し
       const amiVoiceResponse = mapAmiVoiceResponse(rawResponse);
       const metrics = calculateMetrics(amiVoiceResponse);
+      // 成功したのでFeedbackを取得
+      const facts = labelMetrics(metrics);
+      const feedbackResponse = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(facts),
+      });
+      if (!feedbackResponse.ok) {
+        throw new Error(`Feedback API error! status: ${feedbackResponse.status}`);
+      }
+      const feedbackData = await feedbackResponse.json();
       // 成功したので結果を表示
       setMetrics(metrics);
       setAnalysisPhase(AnalysisPhase.Analyzed);
+      setFeedback(feedbackData.feedback);
     } catch (err) {
       // 失敗
       setAnalysisPhase(AnalysisPhase.Error);
@@ -82,6 +97,7 @@ export default function ReadingSpeedMeterMock() {
     setMetrics(null); // サンプルを変えたら結果はリセット
     setAnalysisPhase(AnalysisPhase.Idle);
     setAnalysisErrorMessage(null);
+    setFeedback(null);
   };
 
   const stagnationPct =
@@ -267,6 +283,12 @@ export default function ReadingSpeedMeterMock() {
           color: var(--vermillion); font-size: 13px; letter-spacing: .08em;
         }
 
+        .rsm-feedback {
+          margin-top: 16px; padding: 16px; text-align: left; background-color: var(--paper-deep);
+          border: 1px dashed var(--rule); border-radius: 8px;
+          color: var(--ink); font-size: 16px; letter-spacing: .08em;
+        }
+
         .rsm-foot {
           margin-top: 30px; font-size: 11px; color: var(--ink-soft);
           letter-spacing: .04em; line-height: 1.7; border-top: 1px solid var(--rule); padding-top: 16px;
@@ -407,12 +429,21 @@ export default function ReadingSpeedMeterMock() {
                 </div>
               </div>
             )}
+            {feedback !== null && (
+              <>
+                <div className="rsm-section-label">フィードバック（AIによる分析結果）</div>
+                <div className="rsm-feedback">
+                  {feedback}
+                </div>
+              </>
+            )}
           </>
         )}
 
 
         <div className="rsm-foot">
-          ※ AmiVoice API と連携して、音声データを計測します。
+          ※ AmiVoice API と連携して、音声データを計測し、AIによる分析結果をフィードバックします。
+          AIの分析結果は参考程度にご利用ください。
         </div>
       </div>
     </div>
