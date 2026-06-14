@@ -3,11 +3,11 @@ import { Anthropic } from "@anthropic-ai/sdk";
 import { FEEDBACK_PROMPT } from "@/lib/feedback/prompt";
 import { FeedbackFacts } from "@/lib/feedback/types";
 
-// Claudeクライアント
-const claudeClient = new Anthropic();
 
 // POST だけ受け付ける
 export async function POST(request: NextRequest) {
+    // Claudeクライアント
+    const claudeClient = new Anthropic();
     // サーバー環境変数から API キーを取得（ブラウザには絶対出さない）
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {

@@ -7,6 +7,7 @@ import { useRecorder } from "@/lib/recorder/useRecorder";
 import { RecordingPhase } from "@/lib/recorder/types";
 import { mapAmiVoiceResponse } from "@/lib/metrics/mapAmiVoiceResponse";
 import { labelMetrics } from "@/lib/metrics/labelMetrics";
+import { FeedbackPhase } from "@/lib/feedback/types";
 
 export default function ReadingSpeedMeterMock() {
   const {
@@ -23,6 +24,8 @@ export default function ReadingSpeedMeterMock() {
   const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>(AnalysisPhase.Idle);
   const [analysisErrorMessage, setAnalysisErrorMessage] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackPhase, setFeedbackPhase] = useState<FeedbackPhase>(FeedbackPhase.Idle);
+  const [feedbackErrorMessage, setFeedbackErrorMessage] = useState<string | null>(null);
 
   const [sampleId, setSampleId] = useState<string>("smooth");
   const [metrics, setMetrics] = useState<ReadingMetrics | null>(null);
@@ -45,6 +48,8 @@ export default function ReadingSpeedMeterMock() {
     setAnalysisErrorMessage(null);
     setMetrics(null);
     setFeedback(null);
+    setFeedbackPhase(FeedbackPhase.Idle);
+    setFeedbackErrorMessage(null);
     try {
       // FormDataを組み立てる ブラウザ->自前のBFF->AmiVoice API
       const formData = new FormData();
@@ -69,21 +74,33 @@ export default function ReadingSpeedMeterMock() {
       // マッパー -> 純粋関数呼び出し
       const amiVoiceResponse = mapAmiVoiceResponse(rawResponse);
       const metrics = calculateMetrics(amiVoiceResponse);
-      // 成功したのでFeedbackを取得
-      const facts = labelMetrics(metrics);
-      const feedbackResponse = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(facts),
-      });
-      if (!feedbackResponse.ok) {
-        throw new Error(`Feedback API error! status: ${feedbackResponse.status}`);
-      }
-      const feedbackData = await feedbackResponse.json();
       // 成功したので結果を表示
       setMetrics(metrics);
       setAnalysisPhase(AnalysisPhase.Analyzed);
-      setFeedback(feedbackData.feedback);
+
+      setFeedbackPhase(FeedbackPhase.Generating);
+      // 成功したのでFeedbackを取得
+      const facts = labelMetrics(metrics);
+      try {
+        const feedbackResponse = await fetch("/api/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(facts),
+        });
+        if (!feedbackResponse.ok) {
+          throw new Error(`Feedback API error! status: ${feedbackResponse.status}`);
+        }
+        const feedbackData = await feedbackResponse.json();
+        // feedbackを表示
+        setFeedback(feedbackData.feedback);
+        setFeedbackPhase(FeedbackPhase.Generated);
+      } catch (err) {
+        setFeedbackPhase(FeedbackPhase.Error);
+        setFeedback(null);
+        setFeedbackErrorMessage(
+          err instanceof Error ? err.message : "フィードバックの取得に失敗しました");
+        return;
+      }
     } catch (err) {
       // 失敗
       setAnalysisPhase(AnalysisPhase.Error);
@@ -98,6 +115,18 @@ export default function ReadingSpeedMeterMock() {
     setAnalysisPhase(AnalysisPhase.Idle);
     setAnalysisErrorMessage(null);
     setFeedback(null);
+    setFeedbackPhase(FeedbackPhase.Idle);
+    setFeedbackErrorMessage(null);
+  };
+
+  const handleRecordingStartClick = async () => {
+    setAnalysisPhase(AnalysisPhase.Idle);
+    setAnalysisErrorMessage(null);
+    setMetrics(null);
+    setFeedbackPhase(FeedbackPhase.Idle);
+    setFeedbackErrorMessage(null);
+    setFeedback(null);
+    await handleRecordingStart();
   };
 
   const stagnationPct =
@@ -298,20 +327,24 @@ export default function ReadingSpeedMeterMock() {
       <div className="rsm-wrap">
         <div className="rsm-kicker">Reading Speed Meter</div>
         <h1 className="rsm-title">
-          音読速度計測<span className="seal">試作</span>
+          音読速度計測<span className="seal">Phase 1 機能開発完了</span>
         </h1>
         <p className="rsm-sub">
-          Step 3 — AmiVoice API と連携した音声認識と計測
+        音声認識 AmiVoice API と連携して、音声データを計測します。<br />
+        その後、Claude Haiku APIによる分析結果をフィードバックします。
         </p>
 
-        <div className="rsm-section-label">モックデータを選ぶ</div>
+        <div className="rsm-section-label">読み上げ原稿を選ぶ</div>
         <div className="rsm-tabs">
           {MOCK_SAMPLES.map((s) => (
             <button
               key={s.id}
               className={`rsm-tab ${s.id === sampleId ? "active" : ""}`}
               onClick={() => selectSample(s.id)}
-              disabled={analysisPhase === AnalysisPhase.Analyzing}
+              disabled={
+                analysisPhase === AnalysisPhase.Analyzing
+                || feedbackPhase === FeedbackPhase.Generating
+              }
             >
               <div className="t-label">{s.label}</div>
               <div className="t-note">{s.note}</div>
@@ -319,7 +352,7 @@ export default function ReadingSpeedMeterMock() {
           ))}
         </div>
 
-        <div className="rsm-section-label">認識テキスト</div>
+        <div className="rsm-section-label">読み上げ原稿</div>
         <div className="rsm-genko">
           <div className="rsm-grid">
             {chars.map((c, i) => (
@@ -331,7 +364,7 @@ export default function ReadingSpeedMeterMock() {
           <div className="rsm-count">{chars.length} 文字</div>
         </div>
 
-        <div className="rsm-section-label">録音の状態</div>
+        <div className="rsm-section-label">録音の実施状況</div>
         <div className="rsm-status">
           {recordingPhase === RecordingPhase.Idle && "録音待機中"}
           {recordingPhase === RecordingPhase.Recording && "録音中"}
@@ -342,26 +375,34 @@ export default function ReadingSpeedMeterMock() {
 
         <div className="rsm-section-label">録音ボタン</div>
         {recordingPhase === RecordingPhase.Idle && (
-          <button className="rsm-recording-btn" onClick={handleRecordingStart}
-            disabled={analysisPhase === AnalysisPhase.Analyzing}>
+          <button className="rsm-recording-btn" onClick={handleRecordingStartClick}
+            disabled={analysisPhase === AnalysisPhase.Analyzing
+              || feedbackPhase === FeedbackPhase.Generating
+            }>
             録 音 開 始
           </button>
         )}
         {recordingPhase === RecordingPhase.Recording && (
           <button className="rsm-recording-btn" onClick={handleRecordingStop}
-            disabled={analysisPhase === AnalysisPhase.Analyzing}>
+            disabled={analysisPhase === AnalysisPhase.Analyzing
+              || feedbackPhase === FeedbackPhase.Generating
+            }>
             録 音 停 止
           </button>
         )}
         {recordingPhase === RecordingPhase.Done && (
-          <button className="rsm-recording-btn" onClick={handleRecordingStart}
-            disabled={analysisPhase === AnalysisPhase.Analyzing}>
+          <button className="rsm-recording-btn" onClick={handleRecordingStartClick}
+            disabled={analysisPhase === AnalysisPhase.Analyzing
+              || feedbackPhase === FeedbackPhase.Generating
+            }>
             再 度 録 音
           </button>
         )}
         {recordingPhase === RecordingPhase.Error && (
-          <button className="rsm-recording-btn" onClick={handleRecordingStart}
-            disabled={analysisPhase === AnalysisPhase.Analyzing}>
+          <button className="rsm-recording-btn" onClick={handleRecordingStartClick}
+            disabled={analysisPhase === AnalysisPhase.Analyzing
+              || feedbackPhase === FeedbackPhase.Generating
+            }>
             再 度 録 音（エラーにより録音失敗）
           </button>
         )}
@@ -395,17 +436,19 @@ export default function ReadingSpeedMeterMock() {
 
         {showAudioPlayer && audioUrl && (
           <>
-            <div className="rsm-section-label">計測の状態</div>
+            <div className="rsm-section-label">計測の進捗状況</div>
             <div className="rsm-status">
               {analysisPhase === AnalysisPhase.Idle && "未計測"}
               {analysisPhase === AnalysisPhase.Analyzing && "計測中"}
               {analysisPhase === AnalysisPhase.Analyzed && "計測完了"}
               {analysisPhase === AnalysisPhase.Error &&
-                <span className="rsm-error-message">計測エラー: {analysisErrorMessage}</span>}
+                <span className="rsm-error-message">計測エラー（再度録音からやり直してください）: {analysisErrorMessage}</span>}
             </div>
             <div className="rsm-section-label">計測ボタン</div>
             <button className="rsm-btn" onClick={handleMeasure}
-              disabled={analysisPhase === AnalysisPhase.Analyzing}>
+              disabled={analysisPhase === AnalysisPhase.Analyzing
+                || feedbackPhase === FeedbackPhase.Generating
+              }>
               計 測 す る
             </button>
             {metrics !== null && (
@@ -429,6 +472,17 @@ export default function ReadingSpeedMeterMock() {
                 </div>
               </div>
             )}
+            {feedbackPhase !== FeedbackPhase.Idle && (
+              <>
+                <div className="rsm-section-label">フィードバック生成の進捗状況</div>
+                <div className="rsm-status">
+                  {feedbackPhase === FeedbackPhase.Generating && "フィードバック生成中"}
+                  {feedbackPhase === FeedbackPhase.Generated && "フィードバック生成完了"}
+                  {feedbackPhase === FeedbackPhase.Error &&
+                    <span className="rsm-error-message">フィードバックの生成エラー: {feedbackErrorMessage}</span>}
+                </div>
+              </>
+            )}
             {feedback !== null && (
               <>
                 <div className="rsm-section-label">フィードバック（AIによる分析結果）</div>
@@ -442,8 +496,9 @@ export default function ReadingSpeedMeterMock() {
 
 
         <div className="rsm-foot">
-          ※ AmiVoice API と連携して、音声データを計測し、AIによる分析結果をフィードバックします。
-          AIの分析結果は参考程度にご利用ください。
+          ※ AIの分析結果は参考程度にご利用ください。<br />
+          淀み率の計算において、日本語特有の「間」や「意味のある空白」は考慮されていません。<br />
+          発声された言葉と原稿テキストの照合は行われていません。
         </div>
       </div>
     </div>
