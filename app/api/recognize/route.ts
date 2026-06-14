@@ -6,7 +6,7 @@ const AMIVOICE_ENDPOINT =
 // 会話_汎用（マイページで利用可能エンジン要確認）
 const AMIVOICE_ENGINE = "-a-general";
 
-// POST だけ受け付ける（Java の @PostMapping 相当）
+// POST だけ受け付ける
 export async function POST(request: NextRequest) {
     // サーバー環境変数から API キーを取得（ブラウザには絶対出さない）
     const apiKey = process.env.AMIVOICE_API_KEY;
