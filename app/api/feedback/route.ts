@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
             stagnationRate: Number(body.stagnationRate),
             stagnationRateEvaluation: body.stagnationRateEvaluation,
         }
-    } catch (error) {
+    } catch {
         return NextResponse.json(
             { error: "request is not valid" },
             { status: 400 }
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         });
         const textContent = apiResponse.content[0]?.type === "text" ? apiResponse.content[0].text : "";
         return NextResponse.json({ feedback: textContent });
-    } catch (error) {
+    } catch {
         return NextResponse.json(
             { error: "failed to get api response" },
             { status: 500 }
