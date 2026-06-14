@@ -330,9 +330,9 @@ API keys are **never exposed to the browser**. Next.js API Routes act as a BFF p
 - [x] **`FeedbackPhase`** — 生成中 / 完了 / エラー（計測との失敗分離）
 - [x] 読み上げ原稿の古典抜粋化、Phase 1 完了 UI
 
-### Phase 1 — Step 5（予定 / Planned）
+### Phase 1 — Step 5（完了 / Done）
 
-- [ ] Vercel デプロイ + 環境変数（`AMIVOICE_API_KEY` / `ANTHROPIC_*`）
+- [x] Vercel デプロイ + 環境変数（`AMIVOICE_API_KEY` / `ANTHROPIC_*`）
 
 ### Phase 2 以降（予定 / Planned）
 
